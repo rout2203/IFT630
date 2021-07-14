@@ -7,8 +7,11 @@
 #pragma comment(lib, "OpenCL.lib")
 #include <iostream>
 #include <CL/cl.hpp>
+#include <string>
+#include <fstream>
+using namespace std;
 
-int main() {
+int main(int argc, char* args[]) {
 
 	// Obtention des plateformes.
 	std::vector<cl::Platform> available_platforms;
@@ -61,7 +64,7 @@ int main() {
 
 	std::string kernel_code =
 		"   void kernel multiplication(global const int* mat1, global const int* mat2, global int* mat3) {										 "
-		"       mat3[get_global_id(1)][get_global_id(0)] = mat1[get_global_id(1)][get_global_id(0)] * mat2[get_global_id(1)][get_global_id(0)];  "
+		"       mat3[get_global_id(1), get_global_id(0)] = mat1[get_global_id(1), get_global_id(0)] * mat2[get_global_id(1), get_global_id(0)];  "
 		"   }																																	 ";
 
 	// Sauvegarde de la source.
@@ -80,29 +83,56 @@ int main() {
 	}
 
 	// Création des tampons GPU.
-	cl::Buffer buffer_A(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
-	cl::Buffer buffer_B(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
-	cl::Buffer buffer_C(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
+	//cl::Buffer buffer_A(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
+	//cl::Buffer buffer_B(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
+	//cl::Buffer buffer_C(context, CL_MEM_READ_WRITE, sizeof(int) * 10);
 
 	cl::Buffer buffer_mat1(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * 9);
 	cl::Buffer buffer_mat2(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * 9);
 	cl::Buffer buffer_mat3(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * 9);
 
-	int A[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-	int B[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0 };
+	//int A[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	//int B[] = { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0 };
 
 	// matrices pour tests
 	int mat1[3][3];
-	mat1 = { {1, 3, 2}, {1, 0, 0}, {1, 2, 2} };
 	int mat2[3][3];
-	mat2 = { {0, 0, 2}, {7, 5, 0}, {2, 1, 1} };
+	ifstream file;
+	file.open(args[1]);
+	for (int i = 0;i < 3;i++)
+	{
+		for (int j = 0;j < 3;j++)
+		{
+			file >> mat1[i][j];
+		}
+	}
+	file.close();
+	file.open(args[2]);
+	for (int i = 0;i < 3;i++)
+	{
+		for (int j = 0;j < 3;j++)
+		{
+			file >> mat2[i][j];
+		}
+	}
+	file.close();
+
+
+
+	std::cout << " matrice:" << std::endl;
+	for (int x = 0; x < 3; x++) {
+		for (int y = 0; y < 3; y++) {
+			std::cout << mat1[x][y] << " ";
+		}
+		std::cout << std::endl;
+	}
 
 	// Création de la queue de traitement GPU dans laquelle nous allons planifier des commandes.
 	cl::CommandQueue queue(context, default_device);
 
 	// Planification de l'initialisation des tableaux A et B (transfère du CPU vers le GPU).
-	queue.enqueueWriteBuffer(buffer_A, CL_TRUE, 0, sizeof(int) * 10, A);
-	queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int) * 10, B);
+	//queue.enqueueWriteBuffer(buffer_A, CL_TRUE, 0, sizeof(int) * 10, A);
+	//queue.enqueueWriteBuffer(buffer_B, CL_TRUE, 0, sizeof(int) * 10, B);
 
 	queue.enqueueWriteBuffer(buffer_mat1, CL_TRUE, 0, sizeof(int) * 9, mat1);
 	queue.enqueueWriteBuffer(buffer_mat2, CL_TRUE, 0, sizeof(int) * 9, mat2);
@@ -120,22 +150,22 @@ int main() {
 
 	//     Version générique.
 	//     {
-	cl::Kernel kernel_add = cl::Kernel(program, "multiplication");
+	cl::Kernel kernel_multiply = cl::Kernel(program, "multiplication");
 
 	// Assignation des paramètres du noyau.
 	/*kernel_add.setArg(0, buffer_A);
 	kernel_add.setArg(1, buffer_B);
 	kernel_add.setArg(2, buffer_C);*/
-	kernel_add.setArg(0, buffer_mat1);
-	kernel_add.setArg(1, buffer_mat2);
-	kernel_add.setArg(2, buffer_mat3);
+	kernel_multiply.setArg(0, buffer_mat1);
+	kernel_multiply.setArg(1, buffer_mat2);
+	kernel_multiply.setArg(2, buffer_mat3);
 
 	// Paramètres de «enqueueNDRangeKernel» :
 	//  - const Kernel &kernel  : Noyau à exécuter
 	//  - const NDRange &offset : Décalages des indices globaux (cl::NullRange == aucun).
 	//  - const NDRange &global : Dimension des items de travail (ex: «X», «X * Y», «X * Y * Z», etc.).
 	//  - const NDRange &local  : Dimension des groupes de travail locaux (nombre de work-items par work-group).
-	queue.enqueueNDRangeKernel(kernel_add, cl::NullRange, cl::NDRange(9), cl::NullRange);
+	queue.enqueueNDRangeKernel(kernel_multiply, cl::NullRange, cl::NDRange(3, 3), cl::NullRange);
 
 	// Exemple d'une exécution en 2D.
 	//queue.enqueueNDRangeKernel(kernel_add, cl::NullRange, cl::NDRange(800, 600), cl::NullRange);
@@ -143,18 +173,18 @@ int main() {
 	//     }
 
 	// Déclaration du tampon d'extraction des données (CPU).
-	int C[10];
+	//int C[10];
 	int mat3[3][3];
 
 	// Planification de l'écriture des résultat de `buffer_C` vers `C` (transfère du GPU vers le CPU).
-	queue.enqueueReadBuffer(buffer_C, CL_TRUE, 0, sizeof(int) * 10, C);
+	//queue.enqueueReadBuffer(buffer_C, CL_TRUE, 0, sizeof(int) * 10, C);
 	queue.enqueueReadBuffer(buffer_mat3, CL_TRUE, 0, sizeof(int) * 9, mat3);
 
 	// Affichage des résultats à la console.
-	std::cout << " result:" << std::endl;
+	/*std::cout << " result:" << std::endl;
 	for (int i = 0; i < 10; i++) {
 		std::cout << C[i] << " ";
-	}
+	}*/
 
 	// Affichage des résultats à la console.
 	std::cout << " result:" << std::endl;
