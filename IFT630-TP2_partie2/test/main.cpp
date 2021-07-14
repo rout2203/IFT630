@@ -126,6 +126,13 @@ int main(int argc, char* args[]) {
 		}
 		std::cout << std::endl;
 	}
+	std::cout << " matrice:" << std::endl;
+	for (int x = 0; x < 3; x++) {
+		for (int y = 0; y < 3; y++) {
+			std::cout << mat2[x][y] << " ";
+		}
+		std::cout << std::endl;
+	}
 
 	// Création de la queue de traitement GPU dans laquelle nous allons planifier des commandes.
 	cl::CommandQueue queue(context, default_device);
@@ -165,7 +172,7 @@ int main(int argc, char* args[]) {
 	//  - const NDRange &offset : Décalages des indices globaux (cl::NullRange == aucun).
 	//  - const NDRange &global : Dimension des items de travail (ex: «X», «X * Y», «X * Y * Z», etc.).
 	//  - const NDRange &local  : Dimension des groupes de travail locaux (nombre de work-items par work-group).
-	queue.enqueueNDRangeKernel(kernel_multiply, cl::NullRange, cl::NDRange(3, 3), cl::NullRange);
+	queue.enqueueNDRangeKernel(kernel_multiply, cl::NullRange, cl::NDRange(3 * 3), cl::NullRange);
 
 	// Exemple d'une exécution en 2D.
 	//queue.enqueueNDRangeKernel(kernel_add, cl::NullRange, cl::NDRange(800, 600), cl::NullRange);
